@@ -21,12 +21,13 @@ type CustomerServiceRecvMessage struct {
 	Content struct {
 		Msg string `xml:"msg"`
 	} `xml:"content"`
-	Event      string `xml:"event"`
-	From       int    `xml:"from"`
-	KfState    int    `xml:"kfstate"`
-	Channel    int    `xml:"channel"`
-	Assessment int    `xml:"assessment"`
-	CreateTime int64  `xml:"createtime"`
+	Event        Event        `xml:"event"`
+	From         From         `xml:"from"`
+	KfState      KfState      `xml:"kfstate"`
+	CustomerInfo CustomerInfo `xml:"customerInfo"`
+	Channel      Channel      `xml:"channel"`
+	Assessment   Assessment   `xml:"assessment"`
+	CreateTime   int64        `xml:"createtime"`
 }
 
 // <xml>
@@ -38,16 +39,16 @@ type CustomerServiceRecvMessage struct {
 //     <kefuavatar><![CDATA[客服头像图片URL地址]]></kefuavatar>
 //     <ans_node_name><![CDATA[分类或技能名称]]></ans_node_name>
 // </xml>
- 
+
 // 客服消息发送结构体
 type CustomerServiceSendMessage struct {
-	AppID      string `xml:"appid"`
-	OpenID     string `xml:"openid"`
-	Msg        string `xml:"msg"`
-	Channel    int    `xml:"channel"`
-	KefuName   string `xml:"kefuname"`
-	KefuAvatar string `xml:"kefuavatar"`
-	AnsNode    string `xml:"ans_node_name"`
+	AppID      string  `xml:"appid"`
+	OpenID     string  `xml:"openid"`
+	Msg        string  `xml:"msg"`
+	Channel    Channel `xml:"channel"`
+	KefuName   string  `xml:"kefuname"`
+	KefuAvatar string  `xml:"kefuavatar"`
+	AnsNode    string  `xml:"ans_node_name"`
 }
 
 // <xml>
@@ -58,18 +59,13 @@ type CustomerServiceSendMessage struct {
 
 // 客服状态结构体
 type CustomerServiceState struct {
-	AppID    string `xml:"appid"`
-	OpenID   string `xml:"openid"`
-	KefuState string `xml:"kefustate"`
+	AppID     string    `xml:"appid"`
+	OpenID    string    `xml:"openid"`
+	KefuState KefuState `xml:"kefustate"`
 }
-
 
 // encrypted	string	是	对话内容加密后字符串
 // 客服消息json结构体
 type CustomerServiceMessage struct {
 	Encrypted string `json:"encrypted"`
 }
-
-
-
-

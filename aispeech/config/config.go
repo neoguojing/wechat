@@ -10,4 +10,5 @@ type Config struct {
 	Token          string `json:"token"`            // token
 	EncodingAESKey string `json:"encoding_aes_key"` // EncodingAESKey
 	Cache          cache.Cache
+	AiBot          func(string) string
 }

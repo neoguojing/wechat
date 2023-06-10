@@ -5,6 +5,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/neoguojing/wechat/v2/aispeech"
+	speechConfig "github.com/neoguojing/wechat/v2/aispeech/config"
 	"github.com/neoguojing/wechat/v2/cache"
 	"github.com/neoguojing/wechat/v2/miniprogram"
 	miniConfig "github.com/neoguojing/wechat/v2/miniprogram/config"
@@ -80,4 +82,12 @@ func (wc *Wechat) GetWork(cfg *workConfig.Config) *work.Work {
 		cfg.Cache = wc.cache
 	}
 	return work.NewWork(cfg)
+}
+
+// GetAiSpeech 获取企业微信的实例
+func (wc *Wechat) GetAiSpeech(cfg *speechConfig.Config) *aispeech.CustomerService {
+	if cfg.Cache == nil {
+		cfg.Cache = wc.cache
+	}
+	return aispeech.NewCustomerService(cfg)
 }
