@@ -3,7 +3,7 @@ package addresslist
 import (
 	"strings"
 
-	"github.com/silenceper/wechat/v2/util"
+	"github.com/neoguojing/wechat/v2/util"
 )
 
 const (

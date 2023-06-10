@@ -1,18 +1,18 @@
 package work
 
 import (
-	"github.com/silenceper/wechat/v2/credential"
-	"github.com/silenceper/wechat/v2/work/addresslist"
-	"github.com/silenceper/wechat/v2/work/appchat"
-	"github.com/silenceper/wechat/v2/work/config"
-	"github.com/silenceper/wechat/v2/work/context"
-	"github.com/silenceper/wechat/v2/work/externalcontact"
-	"github.com/silenceper/wechat/v2/work/kf"
-	"github.com/silenceper/wechat/v2/work/material"
-	"github.com/silenceper/wechat/v2/work/message"
-	"github.com/silenceper/wechat/v2/work/msgaudit"
-	"github.com/silenceper/wechat/v2/work/oauth"
-	"github.com/silenceper/wechat/v2/work/robot"
+	"github.com/neoguojing/wechat/v2/credential"
+	"github.com/neoguojing/wechat/v2/work/addresslist"
+	"github.com/neoguojing/wechat/v2/work/appchat"
+	"github.com/neoguojing/wechat/v2/work/config"
+	"github.com/neoguojing/wechat/v2/work/context"
+	"github.com/neoguojing/wechat/v2/work/externalcontact"
+	"github.com/neoguojing/wechat/v2/work/kf"
+	"github.com/neoguojing/wechat/v2/work/material"
+	"github.com/neoguojing/wechat/v2/work/message"
+	"github.com/neoguojing/wechat/v2/work/msgaudit"
+	"github.com/neoguojing/wechat/v2/work/oauth"
+	"github.com/neoguojing/wechat/v2/work/robot"
 )
 
 // Work 企业微信

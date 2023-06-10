@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/silenceper/wechat/v2/miniprogram/context"
-	"github.com/silenceper/wechat/v2/util"
+	"github.com/neoguojing/wechat/v2/miniprogram/context"
+	"github.com/neoguojing/wechat/v2/util"
 )
 
 const (
