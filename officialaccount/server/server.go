@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/neoguojing/log"
 	"github.com/tidwall/gjson"
@@ -235,7 +236,7 @@ func (srv *Server) buildResponse(replys []message.Reply) (err error) {
 			err = fmt.Errorf("panic error: %v\n%s", e, debug.Stack())
 		}
 	}()
-	if replys == nil || len(replys) == 0 {
+	if len(replys) == 0 {
 		// do nothing
 		return nil
 	}
@@ -280,13 +281,18 @@ func (srv *Server) buildResponse(replys []message.Reply) (err error) {
 
 		// srv.ResponseMsg = msgData
 		// srv.ResponseRawXMLMsg, err = xml.Marshal(msgData)
+		if srv.isSafeMode {
+			var rawMag []byte
+			rawMag, err = xml.Marshal(msgData)
+			srv.RawXMLMsgChan <- rawMag
+		} else {
+			srv.MsgChan <- msgData
+		}
 
-		srv.MsgChan <- msgData
-		var rawMag []byte
-		rawMag, err = xml.Marshal(msgData)
-		srv.RawXMLMsgChan <- rawMag
+		time.Sleep(time.Second)
 	}
-
+	close(srv.MsgChan)
+	close(srv.RawXMLMsgChan)
 	return
 }
 
@@ -305,31 +311,45 @@ func (srv *Server) send() (err error) {
 			err = fmt.Errorf("panic error: %v\n%s", e, debug.Stack())
 		}
 	}()
-	// replyMsg := srv.ResponseMsg
-	replyMsg := <-srv.MsgChan
-	rawXMLMsg := <-srv.RawXMLMsgChan
-	log.Debugf("response msg =%+v", replyMsg)
-	if srv.isSafeMode {
-		// 安全模式下对消息进行加密
-		var encryptedMsg []byte
-		// encryptedMsg, err = util.EncryptMsg(srv.random, srv.ResponseRawXMLMsg, srv.AppID, srv.EncodingAESKey)
-		encryptedMsg, err = util.EncryptMsg(srv.random, rawXMLMsg, srv.AppID, srv.EncodingAESKey)
-		if err != nil {
-			return
+
+	for {
+		var replyMsg interface{}
+		var rawXMLMsg []byte
+		var ok bool
+		select {
+		case replyMsg, ok = <-srv.MsgChan:
+			if !ok {
+				return
+			}
+			log.Debugf("response msg =%+v", replyMsg)
+			if replyMsg != nil {
+				srv.XML(replyMsg)
+			}
+
+		case rawXMLMsg, ok = <-srv.RawXMLMsgChan:
+			if !ok {
+				return
+			}
+
+			// 安全模式下对消息进行加密
+			var encryptedMsg []byte
+			// encryptedMsg, err = util.EncryptMsg(srv.random, srv.ResponseRawXMLMsg, srv.AppID, srv.EncodingAESKey)
+			encryptedMsg, err = util.EncryptMsg(srv.random, rawXMLMsg, srv.AppID, srv.EncodingAESKey)
+			if err != nil {
+				return
+			}
+			// TODO 如果获取不到timestamp nonce 则自己生成
+			timestamp := srv.timestamp
+			timestampStr := strconv.FormatInt(timestamp, 10)
+			msgSignature := util.Signature(srv.Token, timestampStr, srv.nonce, string(encryptedMsg))
+			replyMsg = message.ResponseEncryptedXMLMsg{
+				EncryptedMsg: string(encryptedMsg),
+				MsgSignature: msgSignature,
+				Timestamp:    timestamp,
+				Nonce:        srv.nonce,
+			}
+			srv.XML(replyMsg)
 		}
-		// TODO 如果获取不到timestamp nonce 则自己生成
-		timestamp := srv.timestamp
-		timestampStr := strconv.FormatInt(timestamp, 10)
-		msgSignature := util.Signature(srv.Token, timestampStr, srv.nonce, string(encryptedMsg))
-		replyMsg = message.ResponseEncryptedXMLMsg{
-			EncryptedMsg: string(encryptedMsg),
-			MsgSignature: msgSignature,
-			Timestamp:    timestamp,
-			Nonce:        srv.nonce,
-		}
+
 	}
-	if replyMsg != nil {
-		srv.XML(replyMsg)
-	}
-	return
 }
