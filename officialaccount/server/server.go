@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/neoguojing/log"
 	"github.com/tidwall/gjson"
 
 	"github.com/neoguojing/wechat/v2/officialaccount/context"
@@ -30,12 +30,12 @@ type Server struct {
 
 	openID string
 
-	messageHandler func(*message.MixMessage) *message.Reply
+	messageHandler func(*message.MixMessage) []message.Reply
 
 	RequestRawXMLMsg  []byte
 	RequestMsg        *message.MixMessage
-	ResponseRawXMLMsg []byte
-	ResponseMsg       interface{}
+	ResponseRawXMLMsg [][]byte
+	ResponseMsg       []interface{}
 
 	isSafeMode    bool
 	isJSONContent bool
@@ -98,7 +98,7 @@ func (srv *Server) Validate() bool {
 }
 
 // HandleRequest 处理微信的请求
-func (srv *Server) handleRequest() (reply *message.Reply, err error) {
+func (srv *Server) handleRequest() (reply []message.Reply, err error) {
 	// set isSafeMode
 	srv.isSafeMode = false
 	encryptType := srv.Query("encrypt_type")
@@ -219,84 +219,102 @@ func (srv *Server) parseRequestMessage(rawXMLMsgBytes []byte) (msg *message.MixM
 }
 
 // SetMessageHandler 设置用户自定义的回调方法
-func (srv *Server) SetMessageHandler(handler func(*message.MixMessage) *message.Reply) {
+func (srv *Server) SetMessageHandler(handler func(*message.MixMessage) []message.Reply) {
 	srv.messageHandler = handler
 }
 
-func (srv *Server) buildResponse(reply *message.Reply) (err error) {
+func (srv *Server) buildResponse(replys []message.Reply) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("panic error: %v\n%s", e, debug.Stack())
 		}
 	}()
-	if reply == nil {
+	if replys == nil {
 		// do nothing
 		return nil
 	}
-	msgType := reply.MsgType
-	switch msgType {
-	case message.MsgTypeText:
-	case message.MsgTypeImage:
-	case message.MsgTypeVoice:
-	case message.MsgTypeVideo:
-	case message.MsgTypeMusic:
-	case message.MsgTypeNews:
-	case message.MsgTypeTransfer:
-	default:
-		err = message.ErrUnsupportReply
-		return
+	for _, reply := range replys {
+		msgType := reply.MsgType
+		switch msgType {
+		case message.MsgTypeText:
+		case message.MsgTypeImage:
+		case message.MsgTypeVoice:
+		case message.MsgTypeVideo:
+		case message.MsgTypeMusic:
+		case message.MsgTypeNews:
+		case message.MsgTypeTransfer:
+		default:
+			err = message.ErrUnsupportReply
+			return
+		}
+
+		msgData := reply.MsgData
+		value := reflect.ValueOf(msgData)
+		// msgData must be a ptr
+		kind := value.Kind().String()
+		if kind != "ptr" {
+			return message.ErrUnsupportReply
+		}
+
+		params := make([]reflect.Value, 1)
+		params[0] = reflect.ValueOf(srv.RequestMsg.FromUserName)
+		value.MethodByName("SetToUserName").Call(params)
+
+		params[0] = reflect.ValueOf(srv.RequestMsg.ToUserName)
+		value.MethodByName("SetFromUserName").Call(params)
+
+		params[0] = reflect.ValueOf(msgType)
+		value.MethodByName("SetMsgType").Call(params)
+
+		params[0] = reflect.ValueOf(util.GetCurrTS())
+		value.MethodByName("SetCreateTime").Call(params)
+
+		srv.ResponseMsg = append(srv.ResponseMsg, msgData)
+		var rawXMLMsg []byte
+		rawXMLMsg, err = xml.Marshal(msgData)
+		if err == nil && rawXMLMsg != nil {
+			srv.ResponseRawXMLMsg = append(srv.ResponseRawXMLMsg, rawXMLMsg)
+		}
 	}
 
-	msgData := reply.MsgData
-	value := reflect.ValueOf(msgData)
-	// msgData must be a ptr
-	kind := value.Kind().String()
-	if kind != "ptr" {
-		return message.ErrUnsupportReply
-	}
-
-	params := make([]reflect.Value, 1)
-	params[0] = reflect.ValueOf(srv.RequestMsg.FromUserName)
-	value.MethodByName("SetToUserName").Call(params)
-
-	params[0] = reflect.ValueOf(srv.RequestMsg.ToUserName)
-	value.MethodByName("SetFromUserName").Call(params)
-
-	params[0] = reflect.ValueOf(msgType)
-	value.MethodByName("SetMsgType").Call(params)
-
-	params[0] = reflect.ValueOf(util.GetCurrTS())
-	value.MethodByName("SetCreateTime").Call(params)
-
-	srv.ResponseMsg = msgData
-	srv.ResponseRawXMLMsg, err = xml.Marshal(msgData)
 	return
 }
 
 // Send 将自定义的消息发送
 func (srv *Server) Send() (err error) {
-	replyMsg := srv.ResponseMsg
-	log.Debugf("response msg =%+v", replyMsg)
 	if srv.isSafeMode {
-		// 安全模式下对消息进行加密
-		var encryptedMsg []byte
-		encryptedMsg, err = util.EncryptMsg(srv.random, srv.ResponseRawXMLMsg, srv.AppID, srv.EncodingAESKey)
-		if err != nil {
-			return
+		for _, rawXMLMsg := range srv.ResponseRawXMLMsg {
+			log.Debugf("response msg =%+v", rawXMLMsg)
+
+			// 安全模式下对消息进行加密
+			var encryptedMsg []byte
+			encryptedMsg, err = util.EncryptMsg(srv.random, rawXMLMsg, srv.AppID, srv.EncodingAESKey)
+			if err != nil {
+				return
+			}
+			// TODO 如果获取不到timestamp nonce 则自己生成
+			timestamp := srv.timestamp
+			timestampStr := strconv.FormatInt(timestamp, 10)
+			msgSignature := util.Signature(srv.Token, timestampStr, srv.nonce, string(encryptedMsg))
+			replyMsg := message.ResponseEncryptedXMLMsg{
+				EncryptedMsg: string(encryptedMsg),
+				MsgSignature: msgSignature,
+				Timestamp:    timestamp,
+				Nonce:        srv.nonce,
+			}
+
+			srv.XML(replyMsg)
+
 		}
-		// TODO 如果获取不到timestamp nonce 则自己生成
-		timestamp := srv.timestamp
-		timestampStr := strconv.FormatInt(timestamp, 10)
-		msgSignature := util.Signature(srv.Token, timestampStr, srv.nonce, string(encryptedMsg))
-		replyMsg = message.ResponseEncryptedXMLMsg{
-			EncryptedMsg: string(encryptedMsg),
-			MsgSignature: msgSignature,
-			Timestamp:    timestamp,
-			Nonce:        srv.nonce,
+	} else {
+		for _, replyMsg := range srv.ResponseMsg {
+			log.Debugf("response msg =%+v", replyMsg)
+
+			if replyMsg != nil {
+				srv.XML(replyMsg)
+			}
 		}
 	}
-	if replyMsg != nil {
-		srv.XML(replyMsg)
-	}
+
 	return
 }
