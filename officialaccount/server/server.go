@@ -48,6 +48,8 @@ type Server struct {
 func NewServer(context *context.Context) *Server {
 	srv := new(Server)
 	srv.Context = context
+	srv.ResponseRawXMLMsg = make([][]byte, 0)
+	srv.ResponseMsg = make([]interface{}, 0)
 	return srv
 }
 
