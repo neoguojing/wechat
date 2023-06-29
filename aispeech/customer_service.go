@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/neoguojing/log"
 	"github.com/neoguojing/wechat/v2/aispeech/config"
 	"github.com/neoguojing/wechat/v2/util"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -43,7 +43,7 @@ func (c *CustomerService) handler() {
 			if !ok {
 				break
 			}
-			log.Debug(msg)
+			log.Debugf("%v", msg)
 
 			if msg.From == FromUser {
 				if msg.Event == EventUserEnter && msg.Content.Msg == "" {
@@ -78,7 +78,7 @@ func (c *CustomerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 解析json请求
 	var req CustomerServiceMessage
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 		resp := util.NewCommonError(ApiName, 1111, "")
 		resp.ErrMsg = err.Error()
 		jsonResp, _ := json.Marshal(resp)
@@ -87,12 +87,12 @@ func (c *CustomerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Info(req)
+	log.Infof("%v", req)
 	var err error
 	var decodeMsg []byte
 	c.random, decodeMsg, err = util.DecryptMsg(c.config.AppID, req.Encrypted, c.config.EncodingAESKey)
 	if err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 		resp := util.NewCommonError(ApiName, 1111, "")
 		resp.ErrMsg = err.Error()
 		jsonResp, _ := json.Marshal(resp)
@@ -101,12 +101,12 @@ func (c *CustomerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Info(decodeMsg)
+	log.Infof("$v", decodeMsg)
 
 	// 解析xml请求
 	var recvMsg CustomerServiceRecvMessage
 	if err := xml.Unmarshal(decodeMsg, &recvMsg); err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 		resp := util.NewCommonError(ApiName, 1111, "")
 		resp.ErrMsg = err.Error()
 		jsonResp, _ := json.Marshal(resp)
@@ -114,7 +114,7 @@ func (c *CustomerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(jsonResp)
 		return
 	}
-	log.Info(recvMsg)
+	log.Infof("%v", recvMsg)
 	c.msgCh <- recvMsg
 
 	resp := util.NewCommonError(ApiName, 0, "")

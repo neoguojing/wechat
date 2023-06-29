@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/neoguojing/log"
 	"github.com/tidwall/gjson"
 
 	"github.com/neoguojing/wechat/v2/officialaccount/context"
