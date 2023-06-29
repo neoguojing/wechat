@@ -11,7 +11,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/neoguojing/log"
 	"github.com/tidwall/gjson"
@@ -89,7 +88,7 @@ func (srv *Server) Serve() error {
 	// debug print request msg
 	log.Debugf("request msg =%s", string(srv.RequestRawXMLMsg))
 
-	return srv.buildResponse(response)
+	return err
 }
 
 // Validate 校验请求是否合法
@@ -288,8 +287,6 @@ func (srv *Server) buildResponse(replys []message.Reply) (err error) {
 		} else {
 			srv.MsgChan <- msgData
 		}
-
-		time.Sleep(time.Second)
 	}
 	close(srv.MsgChan)
 	close(srv.RawXMLMsgChan)
