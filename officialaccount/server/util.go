@@ -17,10 +17,8 @@ func writeContextType(w http.ResponseWriter, value []string) {
 
 // Render render from bytes
 func (srv *Server) Render(bytes []byte) {
-	// debug
-	// fmt.Println("response msg = ", string(bytes))
-	srv.Writer.WriteHeader(200)
-	srv.Writer.Header().Set("Transfer-Encoding", "chunked")
+	// srv.Writer.WriteHeader(200)
+	// srv.Writer.Header().Set("Transfer-Encoding", "chunked")
 	// srv.Writer.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
 	_, err := srv.Writer.Write(bytes)
 	if err != nil {
