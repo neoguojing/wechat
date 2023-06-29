@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/xml"
+	"fmt"
 	"net/http"
 )
 
@@ -20,6 +21,7 @@ func (srv *Server) Render(bytes []byte) {
 	srv.Writer.WriteHeader(200)
 	srv.Writer.Header().Set("Transfer-Encoding", "chunked")
 	srv.Writer.Header().Del("Content-Length")
+	fmt.Println(srv.Writer.Header())
 	_, err := srv.Writer.Write(bytes)
 	if err != nil {
 		panic(err)
