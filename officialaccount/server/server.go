@@ -52,8 +52,8 @@ type Server struct {
 func NewServer(context *context.Context) *Server {
 	srv := new(Server)
 	srv.Context = context
-	srv.RawXMLMsgChan = make(chan []byte, 1)
-	srv.MsgChan = make(chan interface{}, 1)
+	srv.RawXMLMsgChan = make(chan []byte)
+	srv.MsgChan = make(chan interface{})
 	return srv
 }
 
