@@ -32,10 +32,14 @@ type Server struct {
 
 	messageHandler func(*message.MixMessage) *message.Reply
 
-	RequestRawXMLMsg  []byte
-	RequestMsg        *message.MixMessage
-	ResponseRawXMLMsg []byte
-	ResponseMsg       interface{}
+	RequestRawXMLMsg []byte
+	RequestMsg       *message.MixMessage
+
+	// ResponseRawXMLMsg []byte
+	// ResponseMsg       interface{}
+
+	RawXMLMsgChan chan []byte
+	MsgChan       chan interface{}
 
 	isSafeMode    bool
 	isJSONContent bool
@@ -48,6 +52,8 @@ type Server struct {
 func NewServer(context *context.Context) *Server {
 	srv := new(Server)
 	srv.Context = context
+	srv.RawXMLMsgChan = make(chan []byte, 1)
+	srv.MsgChan = make(chan interface{}, 1)
 	return srv
 }
 
@@ -268,19 +274,37 @@ func (srv *Server) buildResponse(reply *message.Reply) (err error) {
 	params[0] = reflect.ValueOf(util.GetCurrTS())
 	value.MethodByName("SetCreateTime").Call(params)
 
-	srv.ResponseMsg = msgData
-	srv.ResponseRawXMLMsg, err = xml.Marshal(msgData)
+	// srv.ResponseMsg = msgData
+	// srv.ResponseRawXMLMsg, err = xml.Marshal(msgData)
+	go srv.send()
+
+	srv.MsgChan <- msgData
+	var rawMag []byte
+	rawMag, err = xml.Marshal(msgData)
+	srv.RawXMLMsgChan <- rawMag
+
+	return
+}
+
+func (srv *Server) Send(reply *message.Reply) (err error) {
+	err = srv.buildResponse(reply)
+	if err != nil {
+		return
+	}
 	return
 }
 
 // Send 将自定义的消息发送
-func (srv *Server) Send() (err error) {
-	replyMsg := srv.ResponseMsg
+func (srv *Server) send() (err error) {
+	// replyMsg := srv.ResponseMsg
+	replyMsg := <-srv.MsgChan
+	rawXMLMsg := <-srv.RawXMLMsgChan
 	log.Debugf("response msg =%+v", replyMsg)
 	if srv.isSafeMode {
 		// 安全模式下对消息进行加密
 		var encryptedMsg []byte
-		encryptedMsg, err = util.EncryptMsg(srv.random, srv.ResponseRawXMLMsg, srv.AppID, srv.EncodingAESKey)
+		// encryptedMsg, err = util.EncryptMsg(srv.random, srv.ResponseRawXMLMsg, srv.AppID, srv.EncodingAESKey)
+		encryptedMsg, err = util.EncryptMsg(srv.random, rawXMLMsg, srv.AppID, srv.EncodingAESKey)
 		if err != nil {
 			return
 		}
