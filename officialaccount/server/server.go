@@ -30,7 +30,7 @@ type Server struct {
 
 	openID string
 
-	messageHandler func(*message.MixMessage) *message.Reply
+	messageHandler func(*message.MixMessage) []message.Reply
 
 	RequestRawXMLMsg []byte
 	RequestMsg       *message.MixMessage
@@ -104,7 +104,7 @@ func (srv *Server) Validate() bool {
 }
 
 // HandleRequest 处理微信的请求
-func (srv *Server) handleRequest() (reply *message.Reply, err error) {
+func (srv *Server) handleRequest() (reply []message.Reply, err error) {
 	// set isSafeMode
 	srv.isSafeMode = false
 	encryptType := srv.Query("encrypt_type")
@@ -225,68 +225,72 @@ func (srv *Server) parseRequestMessage(rawXMLMsgBytes []byte) (msg *message.MixM
 }
 
 // SetMessageHandler 设置用户自定义的回调方法
-func (srv *Server) SetMessageHandler(handler func(*message.MixMessage) *message.Reply) {
+func (srv *Server) SetMessageHandler(handler func(*message.MixMessage) []message.Reply) {
 	srv.messageHandler = handler
 }
 
-func (srv *Server) buildResponse(reply *message.Reply) (err error) {
+func (srv *Server) buildResponse(replys []message.Reply) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("panic error: %v\n%s", e, debug.Stack())
 		}
 	}()
-	if reply == nil {
+	if replys == nil || len(replys) == 0 {
 		// do nothing
 		return nil
 	}
-	msgType := reply.MsgType
-	switch msgType {
-	case message.MsgTypeText:
-	case message.MsgTypeImage:
-	case message.MsgTypeVoice:
-	case message.MsgTypeVideo:
-	case message.MsgTypeMusic:
-	case message.MsgTypeNews:
-	case message.MsgTypeTransfer:
-	default:
-		err = message.ErrUnsupportReply
-		return
-	}
 
-	msgData := reply.MsgData
-	value := reflect.ValueOf(msgData)
-	// msgData must be a ptr
-	kind := value.Kind().String()
-	if kind != "ptr" {
-		return message.ErrUnsupportReply
-	}
-
-	params := make([]reflect.Value, 1)
-	params[0] = reflect.ValueOf(srv.RequestMsg.FromUserName)
-	value.MethodByName("SetToUserName").Call(params)
-
-	params[0] = reflect.ValueOf(srv.RequestMsg.ToUserName)
-	value.MethodByName("SetFromUserName").Call(params)
-
-	params[0] = reflect.ValueOf(msgType)
-	value.MethodByName("SetMsgType").Call(params)
-
-	params[0] = reflect.ValueOf(util.GetCurrTS())
-	value.MethodByName("SetCreateTime").Call(params)
-
-	// srv.ResponseMsg = msgData
-	// srv.ResponseRawXMLMsg, err = xml.Marshal(msgData)
 	go srv.send()
 
-	srv.MsgChan <- msgData
-	var rawMag []byte
-	rawMag, err = xml.Marshal(msgData)
-	srv.RawXMLMsgChan <- rawMag
+	for _, reply := range replys {
+		msgType := reply.MsgType
+		switch msgType {
+		case message.MsgTypeText:
+		case message.MsgTypeImage:
+		case message.MsgTypeVoice:
+		case message.MsgTypeVideo:
+		case message.MsgTypeMusic:
+		case message.MsgTypeNews:
+		case message.MsgTypeTransfer:
+		default:
+			err = message.ErrUnsupportReply
+			return
+		}
+
+		msgData := reply.MsgData
+		value := reflect.ValueOf(msgData)
+		// msgData must be a ptr
+		kind := value.Kind().String()
+		if kind != "ptr" {
+			return message.ErrUnsupportReply
+		}
+
+		params := make([]reflect.Value, 1)
+		params[0] = reflect.ValueOf(srv.RequestMsg.FromUserName)
+		value.MethodByName("SetToUserName").Call(params)
+
+		params[0] = reflect.ValueOf(srv.RequestMsg.ToUserName)
+		value.MethodByName("SetFromUserName").Call(params)
+
+		params[0] = reflect.ValueOf(msgType)
+		value.MethodByName("SetMsgType").Call(params)
+
+		params[0] = reflect.ValueOf(util.GetCurrTS())
+		value.MethodByName("SetCreateTime").Call(params)
+
+		// srv.ResponseMsg = msgData
+		// srv.ResponseRawXMLMsg, err = xml.Marshal(msgData)
+
+		srv.MsgChan <- msgData
+		var rawMag []byte
+		rawMag, err = xml.Marshal(msgData)
+		srv.RawXMLMsgChan <- rawMag
+	}
 
 	return
 }
 
-func (srv *Server) Send(reply *message.Reply) (err error) {
+func (srv *Server) Send(reply []message.Reply) (err error) {
 	err = srv.buildResponse(reply)
 	if err != nil {
 		return
@@ -296,6 +300,11 @@ func (srv *Server) Send(reply *message.Reply) (err error) {
 
 // Send 将自定义的消息发送
 func (srv *Server) send() (err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("panic error: %v\n%s", e, debug.Stack())
+		}
+	}()
 	// replyMsg := srv.ResponseMsg
 	replyMsg := <-srv.MsgChan
 	rawXMLMsg := <-srv.RawXMLMsgChan

@@ -22,7 +22,6 @@ func (srv *Server) Render(bytes []byte) {
 	// srv.Writer.Header().Set("Transfer-Encoding", "chunked")
 	// srv.Writer.Header().Set("Content-Length", "-1")
 	fmt.Println(srv.Writer.Header())
-
 	_, err := srv.Writer.Write(bytes)
 	if err != nil {
 		panic(err)
